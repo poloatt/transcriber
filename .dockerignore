@@ -1,0 +1,47 @@
+# Ignore node_modules directory
+node_modules
+
+# Ignore log files
+*.log
+
+# Ignore build directories
+dist
+build
+
+# Ignore Docker files
+Dockerfile
+Dockerfile.*
+
+# Ignore environment variables
+.env
+
+# Ignore temporary files
+*.tmp
+*.swp
+
+# Development files
+__pycache__
+*.pyc
+.pytest_cache
+.coverage
+htmlcov
+
+# Version control
+.git
+.gitignore
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Docker files
+Dockerfile*
+.dockerignore
+
+# IDE files
+.vscode
+.idea
+
+# Logs and databases
+*.sqlite

@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  app:  # This is your service name
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.${ENV:-dev}
+    ports:
+      - "5002:5002"  # Make sure this mapping is correct
+    volumes:
+      - ./app:/app/app:ro
+      - ./config/${ENV:-dev}:/etc/transcriber/config:ro
+      - ./config/${ENV:-dev}/pulse-client.conf:/etc/pulse/client.conf:ro
+      - ./config/${ENV:-dev}/.asoundrc:/home/appuser/.asoundrc:ro
+      - type: bind
+        source: /dev/snd
+        target: /dev/snd
+        bind:
+          mode: "rw"
+      - /mnt/wslg/PulseServer:/mnt/wslg/PulseServer:rw
+      - /mnt/wslg/PulseServer.cookie:/mnt/wslg/PulseServer.cookie:rw
+      - ${HOME}/.asoundrc:/home/appuser/.asoundrc:rw
+      - ./google_credentials.json:/app/google_credentials.json:ro
+    devices:
+      - "/dev/snd:/dev/snd"
+    environment:
+      - ENV=${ENV:-dev}
+      - FLASK_APP=app/__init__.py
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+      - PORT=5002
+      - PULSE_SERVER=unix:/mnt/wslg/PulseServer
+      - PULSE_COOKIE=/mnt/wslg/PulseServer.cookie
+      - AUDIO_GID=${AUDIO_GID:-29}
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/google_credentials.json
+    group_add:
+      - "${AUDIO_GID:-29}"
+    privileged: true
+    restart: "no"
+    security_opt:
+      - seccomp:unconfined
+    cap_add:
+      - SYS_NICE
+      - SYS_RESOURCE
+      - SYS_PTRACE
