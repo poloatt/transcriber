@@ -5,6 +5,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.${ENV:-dev}
+    image: transcriber_app  # Specify the image name here
     ports:
       - "5002:5002"  # Make sure this mapping is correct
     volumes:
@@ -12,14 +13,9 @@ services:
       - ./config/${ENV:-dev}:/etc/transcriber/config:ro
       - ./config/${ENV:-dev}/pulse-client.conf:/etc/pulse/client.conf:ro
       - ./config/${ENV:-dev}/.asoundrc:/home/appuser/.asoundrc:ro
-      - type: bind
-        source: /dev/snd
-        target: /dev/snd
-        bind:
-          mode: "rw"
+      - /dev/snd:/dev/snd
       - /mnt/wslg/PulseServer:/mnt/wslg/PulseServer:rw
       - /mnt/wslg/PulseServer.cookie:/mnt/wslg/PulseServer.cookie:rw
-      - ${HOME}/.asoundrc:/home/appuser/.asoundrc:rw
       - ./google_credentials.json:/app/google_credentials.json:ro
     devices:
       - "/dev/snd:/dev/snd"

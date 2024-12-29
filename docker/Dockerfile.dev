@@ -14,50 +14,12 @@ RUN apt-get update && apt-get install -y \
     pulseaudio-utils \
     alsa-utils \
     sudo \
-    && rm -rf /var/lib/apt/lists/*
-
-# Add ffmpeg for audio processing
-RUN apt-get update && apt-get install -y \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Add audio group and configure user with sudo
-RUN getent group audio || groupadd -r audio && \
-    useradd -r -g audio appuser && \
-    mkdir -p /home/appuser && \
-    chown -R appuser:audio /home/appuser /app && \
-    usermod -a -G audio,root appuser && \
-    echo "appuser ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-
-# Configure audio permissions
-RUN mkdir -p /run/user/1000/pulse /dev/snd && \
-    chown -R appuser:audio /run/user/1000/pulse /dev/snd && \
-    chmod -R 777 /dev/snd && \
-    mkdir -p /etc/pulse && \
-    chown -R appuser:audio /etc/pulse
-
-# Set proper capabilities
-RUN apt-get update && apt-get install -y libcap2-bin && \
-    setcap cap_sys_nice+ep /usr/bin/pulseaudio && \
-    setcap cap_sys_nice+ep /usr/bin/python3.9
-
-# Configure ALSA
-RUN echo 'pcm.!default {\n type pulse\n}\nctl.!default {\n type pulse\n}' > /etc/asound.conf
-
-# Configure PulseAudio
-RUN echo 'load-module module-native-protocol-unix auth-anonymous=1 socket=/mnt/wslg/PulseServer' > /etc/pulse/default.pa
-
-# Configure audio
-COPY pulse-client.conf /etc/pulse/client.conf
-RUN mkdir -p /etc/pulse && \
-    chown -R appuser:audio /etc/pulse && \
-    chmod 755 /etc/pulse && \
-    chmod 644 /etc/pulse/client.conf
-
-USER appuser
-
 # Install Python dependencies
 COPY requirements.txt .
+RUN pip install --upgrade pip setuptools
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Explicitly expose the port
@@ -74,4 +36,7 @@ ENV PYTHONPATH=/app \
     PORT=5002
 
 # Update CMD to use the development server with debug mode
-CMD ["python", "-m", "flask", "--app", "app", "run", "--host=0.0.0.0", "--port=5002", "--debug"]
+CMD ["flask", "run", "--host=0.0.0.0", "--port=5002", "--debugger"]
+
+RUN pip show Flask
+RUN python --version

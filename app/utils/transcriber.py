@@ -24,6 +24,19 @@ def convert_to_wav(file_path: str) -> Optional[str]:
         logger.error(f"Error converting audio: {e}")
         return None
 
+def transcribe_audio(file_path, language='en-US'):
+    recognizer = sr.Recognizer()
+    with sr.AudioFile(file_path) as source:
+        audio = recognizer.record(source)
+        try:
+            # Cambia el idioma según el parámetro
+            transcription = recognizer.recognize_google(audio, language=language)
+            return transcription
+        except sr.UnknownValueError:
+            return "No se pudo entender el audio"
+        except sr.RequestError as e:
+            return f"Error en la solicitud; {e}"
+
 def transcribe_file(file_path: str) -> str:
     """Transcribe an audio file to text with error handling"""
     temp_path = os.path.join(Config.UPLOADS_DIR, 'temp_wav_file.wav')

@@ -3,9 +3,10 @@ Transcriber application package.
 """
 import logging
 import os
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, jsonify, request
 from flask_cors import CORS
 from .config import Config
+from .utils.transcriber import transcribe_audio  # Adjust the import path
 
 __version__ = '0.1.0'
 
@@ -29,7 +30,6 @@ def create_app():
     app.register_blueprint(transcriber_bp, url_prefix='/api')  # Register the new blueprint
     
     @app.route('/')
-    @app.route('/index.html')
     def serve_index():
         return send_from_directory(Config.STATIC_DIR, 'index.html')
     

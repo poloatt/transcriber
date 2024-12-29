@@ -6,7 +6,7 @@ class Config:
     APP_DIR = os.path.dirname(os.path.abspath(__file__))
     
     # App directories (inside /app)
-    STATIC_DIR = os.path.join(APP_DIR, 'static')
+    STATIC_DIR = os.path.join(os.path.dirname(__file__), 'static')
     SSL_DIR = os.path.join(APP_DIR, 'ssl')
     TEMPLATES_DIR = os.path.join(APP_DIR, 'templates')
     UTILS_DIR = os.path.join(APP_DIR, 'utils')
