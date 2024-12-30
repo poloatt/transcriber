@@ -6,7 +6,7 @@ import os
 from flask import Flask, send_from_directory, jsonify, request
 from flask_cors import CORS
 from .config import Config
-from .utils.transcriber import transcribe_audio  # Adjust the import path
+from .utils.transcriber import transcribe_audio  # Ensure this imports the Whisper function
 
 __version__ = '0.1.0'
 
@@ -32,5 +32,18 @@ def create_app():
     @app.route('/')
     def serve_index():
         return send_from_directory(Config.STATIC_DIR, 'index.html')
+    
+    @app.route('/transcribe', methods=['POST'])
+    def transcribe():
+        language = request.form.get('language', 'es-AR')
+        audio_file = request.files['audio']
+        
+        # Save the audio file temporarily
+        temp_file_path = f"/tmp/{audio_file.filename}"
+        audio_file.save(temp_file_path)
+
+        transcription = transcribe_audio(temp_file_path, language)
+        
+        return jsonify({'transcription': transcription})
     
     return app

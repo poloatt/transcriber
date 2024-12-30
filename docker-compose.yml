@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.${ENV:-dev}
-    image: transcriber_app  # Specify the image name here
+    image: transcriber_ar  # Specify the image name here
     ports:
       - "5002:5002"  # Make sure this mapping is correct
     volumes:

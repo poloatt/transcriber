@@ -4,6 +4,9 @@ from pydub import AudioSegment
 import os
 import logging
 from ..config import Config  # Update import path
+import whisper
+from google.cloud import speech_v1p1beta1 as speech
+import io
 
 logger = logging.getLogger(__name__)
 
@@ -24,21 +27,36 @@ def convert_to_wav(file_path: str) -> Optional[str]:
         logger.error(f"Error converting audio: {e}")
         return None
 
-def transcribe_audio(file_path, language='en-US'):
-    recognizer = sr.Recognizer()
-    with sr.AudioFile(file_path) as source:
-        audio = recognizer.record(source)
-        try:
-            # Cambia el idioma según el parámetro
-            transcription = recognizer.recognize_google(audio, language=language)
-            return transcription
-        except sr.UnknownValueError:
-            return "No se pudo entender el audio"
-        except sr.RequestError as e:
-            return f"Error en la solicitud; {e}"
+def transcribe_audio(file_path, language='es-AR'):
+    """Transcribe audio file to text using Google Cloud Speech-to-Text."""
+    logger.info("Using Google Cloud Speech-to-Text for transcription.")
+    logger.info(f"Transcribing file: {file_path} with primary language: {language}")
 
-def transcribe_file(file_path: str) -> str:
-    """Transcribe an audio file to text with error handling"""
+    client = speech.SpeechClient()
+
+    with io.open(file_path, "rb") as audio_file:
+        content = audio_file.read()
+
+    audio = speech.RecognitionAudio(content=content)
+    config = speech.RecognitionConfig(
+        encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+        sample_rate_hertz=16000,
+        language_code=language,  # Solo usar 'es-AR'
+        model="command_and_search"
+    )
+
+    response = client.recognize(config=config, audio=audio)
+
+    # Procesar la respuesta
+    transcription = ""
+    for result in response.results:
+        transcription += result.alternatives[0].transcript + " "
+
+    logger.info(f"Transcription result: {transcription.strip()}")
+    return transcription.strip()
+
+def transcribe_file(file_path: str, language='es-AR') -> str:
+    """Transcribe an audio file to text with error handling."""
     temp_path = os.path.join(Config.UPLOADS_DIR, 'temp_wav_file.wav')
     try:
         # Convert to WAV if needed
@@ -58,7 +76,7 @@ def transcribe_file(file_path: str) -> str:
             logger.info("Transcribing audio...")
             text = recognizer.recognize_google(
                 audio_data,
-                language='en-US',  # Set language explicitly
+                language=language,  # Use the language parameter
                 show_all=False     # Return best result only
             )
             logger.info("Transcription complete")
@@ -84,5 +102,5 @@ def transcribe_file(file_path: str) -> str:
 
 if __name__ == "__main__":
     file_path = "path_to_your_audio_file.wav"
-    transcription = transcribe_file(file_path)
+    transcription = transcribe_file(file_path, language='es-ES')  # Example for Spanish
     print(transcription)

@@ -160,6 +160,28 @@
                 console.error(message);
             }
         }
+
+        let selectedLanguage = 'es'; // Default to Spanish
+
+        function transcribeAudio() {
+            // Use selectedLanguage to set the language parameter
+            const audioFile = document.getElementById('audioInput').files[0]; // Assuming you have an input for audio
+            const formData = new FormData();
+            formData.append('audio', audioFile);
+            formData.append('language', selectedLanguage);
+
+            fetch('/transcribe', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('transcription').innerText = data.transcription;
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        }
     </script>
 </head>
 <body>
