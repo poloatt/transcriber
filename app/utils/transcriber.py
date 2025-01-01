@@ -4,7 +4,6 @@ from pydub import AudioSegment
 import os
 import logging
 from ..config import Config  # Update import path
-import whisper
 from google.cloud import speech_v1p1beta1 as speech
 import io
 

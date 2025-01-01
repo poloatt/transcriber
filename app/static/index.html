@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voice Transcriber</title>
+    <title>Test de Rorschach</title>
     <style>
         * {
             box-sizing: border-box;
@@ -135,22 +135,25 @@
     </style>
     <script>
         window.onload = function() {
-            // Check for secure context
+            checkSecureContext();
+            checkMediaRecorderSupport();
+        };
+
+        function checkSecureContext() {
             if (!window.isSecureContext && 
                 window.location.hostname !== 'localhost' && 
                 window.location.hostname !== '127.0.0.1') {
                 showError('This application requires a secure context (HTTPS or localhost) for microphone access.');
                 document.getElementById('startBtn').disabled = true;
-                return;
             }
+        }
 
-            // More reliable browser check
+        function checkMediaRecorderSupport() {
             if (typeof MediaRecorder === 'undefined') {
                 showError('Your browser does not support MediaRecorder. Please use Chrome, Firefox, or Edge.');
                 document.getElementById('startBtn').disabled = true;
-                return;
             }
-        };
+        }
 
         function showError(message) {
             const statusDiv = document.getElementById('status');
@@ -161,32 +164,227 @@
             }
         }
 
-        let selectedLanguage = 'es'; // Default to Spanish
+        let currentLamina = 1; // Contador de láminas
+        const totalLaminas = 10; // Total de láminas
+        let transcriptions = []; // Array para almacenar las transcripciones
+        let recordedAudioBlob; // Variable para almacenar el audio grabado
 
-        function transcribeAudio() {
-            // Use selectedLanguage to set the language parameter
-            const audioFile = document.getElementById('audioInput').files[0]; // Assuming you have an input for audio
+        function startRecording() {
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(stream => {
+                    mediaRecorder = new MediaRecorder(stream);
+                    mediaRecorder.start();
+
+                    mediaRecorder.ondataavailable = function(event) {
+                        recordedAudioBlob = event.data; // Almacenar el audio grabado
+                    };
+
+                    console.log("Grabación iniciada.");
+                })
+                .catch(error => {
+                    console.error("Error al acceder al micrófono:", error);
+                });
+        }
+
+        function stopRecording() {
+            console.log("Grabación detenida.");
+            mediaRecorder.stop(); // Detener la grabación
+
             const formData = new FormData();
-            formData.append('audio', audioFile);
-            formData.append('language', selectedLanguage);
+            formData.append('audio', recordedAudioBlob, 'audio.wav'); // Agregar el Blob al FormData
+            formData.append('language', 'es-AR'); // Usar 'es-AR' como idioma
+
+            console.log("Enviando audio al backend...");
 
             fetch('/transcribe', {
                 method: 'POST',
                 body: formData
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Error en la respuesta de la API');
+                }
+                return response.json();
+            })
             .then(data => {
-                document.getElementById('transcription').innerText = data.transcription;
+                // Almacenar la transcripción en el array
+                transcriptions[currentLamina - 1] = data.transcription; // Almacenar en la posición correspondiente
+                console.log(`Transcripción de Lámina ${currentLamina}: ${data.transcription}`);
+
+                // Mostrar la transcripción actual en la interfaz
+                document.getElementById('transcription').innerText = `Transcripción de Lámina ${currentLamina}: ${data.transcription}`; // Mostrar la transcripción actual
+
+                // Guardar la transcripción en el campo del formulario
+                const transcriptionField = document.getElementById(`lamina-${currentLamina}`);
+                if (transcriptionField) {
+                    transcriptionField.value = data.transcription; // Copiar la transcripción al campo del formulario
+                }
+
+                // Mostrar las transcripciones anteriores
+                updatePreviousTranscriptions();
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.error('Error al transcribir:', error);
+            });
+        }
+
+        function saveCurrentTranscription() {
+            const currentTranscription = document.getElementById('transcription').innerText;
+            const transcriptionField = document.getElementById(`lamina-${currentLamina}`);
+            if (transcriptionField) {
+                transcriptionField.value = currentTranscription; // Copiar la transcripción al campo del formulario
+            }
+        }
+
+        function loadSavedTranscription() {
+            const transcriptionField = document.getElementById(`lamina-${currentLamina}`);
+            if (transcriptionField && transcriptionField.value) {
+                document.getElementById('transcription').innerText = `Transcripción de Lámina ${currentLamina}: ${transcriptionField.value}`; // Mostrar la transcripción guardada
+            }
+        }
+
+        function updatePreviousTranscriptions() {
+            const previousTranscriptionsDiv = document.getElementById('previousTranscriptions');
+            previousTranscriptionsDiv.innerHTML = ''; // Limpiar las transcripciones anteriores
+
+            for (let i = 1; i < currentLamina; i++) {
+                const transcriptionField = document.getElementById(`lamina-${i}`);
+                if (transcriptionField && transcriptionField.value) {
+                    const transcriptionDiv = document.createElement('div');
+                    transcriptionDiv.innerText = `Lámina ${i}: ${transcriptionField.value}`;
+                    previousTranscriptionsDiv.appendChild(transcriptionDiv);
+                }
+            }
+        }
+
+        function nextLamina() {
+            saveCurrentTranscription();
+
+            currentLamina++;
+            if (currentLamina > totalLaminas) {
+                document.getElementById('nextBtn').style.display = 'none'; // Ocultar botón de siguiente
+                document.getElementById('reviewBtn').style.display = 'block'; // Mostrar botón de revisar
+                alert("Se han transcrito todas las láminas.");
+            } else {
+                document.getElementById('laminaCounter').innerText = `Lámina ${currentLamina}`;
+                document.getElementById('transcription').innerText = ''; // Limpiar la transcripción al avanzar
+                loadSavedTranscription();
+                updatePreviousTranscriptions();
+            }
+
+            // Mostrar el botón de atrás si no estamos en la primera lámina
+            document.getElementById('backBtn').style.display = currentLamina > 1 ? 'inline-block' : 'none';
+        }
+
+        function previousLamina() {
+            saveCurrentTranscription();
+
+            if (currentLamina > 1) {
+                currentLamina--;
+
+                document.getElementById('laminaCounter').innerText = `Lámina ${currentLamina}`;
+                document.getElementById('transcription').innerText = ''; // Limpiar la transcripción al retroceder
+                loadSavedTranscription();
+                updatePreviousTranscriptions();
+
+                // Ocultar el botón de atrás si estamos en la primera lámina
+                document.getElementById('backBtn').style.display = currentLamina > 1 ? 'inline-block' : 'none';
+            }
+        }
+
+        function reviewTranscriptions() {
+            const reviewSection = document.getElementById('reviewSection');
+            reviewSection.innerHTML = ''; // Limpiar la sección de revisión
+
+            // Crear una tabla para mostrar las transcripciones
+            const table = document.createElement('table');
+            table.style.width = '100%';
+            table.style.borderCollapse = 'collapse';
+
+            // Crear encabezados de la tabla
+            const headerRow = document.createElement('tr');
+            const headerCell1 = document.createElement('th');
+            headerCell1.innerText = 'Lámina';
+            headerRow.appendChild(headerCell1);
+
+            const headerCell2 = document.createElement('th');
+            headerCell2.innerText = 'Transcripción';
+            headerRow.appendChild(headerCell2);
+
+            table.appendChild(headerRow);
+
+            // Llenar la tabla con las transcripciones
+            const transcriptionsData = {};
+            for (let i = 1; i <= totalLaminas; i++) {
+                const row = document.createElement('tr');
+                
+                const cell1 = document.createElement('td');
+                cell1.innerText = `Lámina ${i}`;
+                row.appendChild(cell1);
+
+                const cell2 = document.createElement('td');
+                const transcriptionField = document.getElementById(`lamina-${i}`);
+                const transcriptionText = transcriptionField && transcriptionField.value ? transcriptionField.value : "Sin transcripción";
+                cell2.innerText = transcriptionText; // Mostrar la transcripción o mensaje
+                row.appendChild(cell2);
+
+                table.appendChild(row);
+
+                // Agregar la transcripción a los datos
+                transcriptionsData[`lamina-${i}`] = transcriptionText;
+            }
+
+            reviewSection.appendChild(table); // Agregar la tabla a la sección de revisión
+
+            // Ocultar elementos innecesarios
+            document.getElementById('transcriptionSection').style.display = 'none'; // Ocultar transcripciones
+            document.getElementById('laminaCounter').style.display = 'none'; // Ocultar contador
+            document.getElementById('controls').style.display = 'none'; // Ocultar controles
+            document.getElementById('previousTranscriptions').style.display = 'none'; // Ocultar transcripciones anteriores
+            document.getElementById('reviewBtn').style.display = 'none'; // Ocultar botón de revisar
+            document.getElementById('reviewSection').style.display = 'block'; // Mostrar la sección de revisión
+
+            // Enviar las transcripciones al backend
+            fetch('/save_transcriptions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(transcriptionsData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('Transcriptions saved:', data);
+                // Procesar con LLM
+                processWithLLM(transcriptionsData);
+            })
+            .catch(error => {
+                console.error('Error saving transcriptions:', error);
+            });
+        }
+
+        function processWithLLM(transcriptionsData) {
+            fetch('/process_with_llm', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(transcriptionsData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('LLM response:', data);
+            })
+            .catch(error => {
+                console.error('Error processing with LLM:', error);
             });
         }
     </script>
 </head>
 <body>
     <div class="container">
-        <h1>Voice Transcriber</h1>
+        <h1>Test de Rorschach</h1>
+        <div id="laminaCounter">Lámina 1</div> <!-- Contador de láminas -->
         
         <div class="permission-request" id="permissionRequest">
             <p>Microphone access is required for recording.</p>
@@ -195,9 +393,12 @@
             </button>
         </div>
         
-        <div class="controls">
-            <button onclick="startRecording()" id="startBtn">Start Recording</button>
-            <button onclick="stopRecording()" id="stopBtn" disabled>Stop Recording</button>
+        <div class="controls" id="controls">
+            <button onclick="startRecording()" id="startBtn">Play</button>
+            <button onclick="stopRecording()" id="stopBtn" disabled>Stop</button>
+            <button id="backBtn" onclick="previousLamina()" style="display: none;">Atrás</button>
+            <button id="nextBtn" onclick="nextLamina()">Siguiente</button>
+            <button id="reviewBtn" style="display: none;" onclick="reviewTranscriptions()">Revisar</button>
         </div>
 
         <div class="recording-status">
@@ -212,11 +413,41 @@
 
         <div class="status" id="status"></div>
 
-        <div class="transcription-box">
-            <h2>Transcription</h2>
+        <div class="transcription-box" id="transcriptionSection">
+            <h2>Transcripción</h2>
             <div id="transcription"></div>
         </div>
+
+        <div id="previousTranscriptions" class="transcription-box">
+            <h2>Transcripciones Anteriores</h2>
+        </div>
+
+        <div id="reviewSection" style="display: none;">
+            <!-- La tabla de revisión se mostrará aquí -->
+        </div>
+
+        <form id="transcriptionForm" style="display: none;">
+            <h2>Formulario de Evaluación</h2>
+            <div id="transcriptionFields">
+                <!-- Campos predefinidos para cada lámina -->
+                <textarea id="lamina-1" placeholder="Transcripción de Lámina 1"></textarea>
+                <textarea id="lamina-2" placeholder="Transcripción de Lámina 2"></textarea>
+                <textarea id="lamina-3" placeholder="Transcripción de Lámina 3"></textarea>
+                <textarea id="lamina-4" placeholder="Transcripción de Lámina 4"></textarea>
+                <textarea id="lamina-5" placeholder="Transcripción de Lámina 5"></textarea>
+                <textarea id="lamina-6" placeholder="Transcripción de Lámina 6"></textarea>
+                <textarea id="lamina-7" placeholder="Transcripción de Lámina 7"></textarea>
+                <textarea id="lamina-8" placeholder="Transcripción de Lámina 8"></textarea>
+                <textarea id="lamina-9" placeholder="Transcripción de Lámina 9"></textarea>
+                <textarea id="lamina-10" placeholder="Transcripción de Lámina 10"></textarea>
+            </div>
+            <button type="submit">Enviar</button>
+        </form>
     </div>
     <script src="/static/recorder.js"></script>
+    <input type="file" id="audioInput" accept="audio/*" style="display: none;" />
+    <script>
+        // Tu código JavaScript aquí
+    </script>
 </body>
 </html>
