@@ -4,10 +4,10 @@ services:
   app:  # This is your service name
     build:
       context: .
-      dockerfile: docker/Dockerfile.${ENV:-dev}
-    image: transcriber_ar  # Specify the image name here
+      dockerfile: docker/Dockerfile.dev
+    image: transcriber_asistant  # Specify the image name here
     ports:
-      - "5002:5002"  # Make sure this mapping is correct
+      - "5002:5002"
     volumes:
       - ./app:/app/app:ro
       - ./config/${ENV:-dev}:/etc/transcriber/config:ro
@@ -39,3 +39,8 @@ services:
       - SYS_NICE
       - SYS_RESOURCE
       - SYS_PTRACE
+    deploy:
+      resources:
+        limits:
+          memory: 10g
+          cpus: "1.0"

@@ -311,6 +311,10 @@
             headerCell2.innerText = 'Transcripción';
             headerRow.appendChild(headerCell2);
 
+            const headerCell3 = document.createElement('th');
+            headerCell3.innerText = 'Análisis';
+            headerRow.appendChild(headerCell3);
+
             table.appendChild(headerRow);
 
             // Llenar la tabla con las transcripciones
@@ -327,6 +331,10 @@
                 const transcriptionText = transcriptionField && transcriptionField.value ? transcriptionField.value : "Sin transcripción";
                 cell2.innerText = transcriptionText; // Mostrar la transcripción o mensaje
                 row.appendChild(cell2);
+
+                const cell3 = document.createElement('td');
+                cell3.innerText = "Procesando..."; // Placeholder for analysis
+                row.appendChild(cell3);
 
                 table.appendChild(row);
 
@@ -356,14 +364,14 @@
             .then(data => {
                 console.log('Transcriptions saved:', data);
                 // Procesar con LLM
-                processWithLLM(transcriptionsData);
+                processWithLLM(transcriptionsData, table);
             })
             .catch(error => {
                 console.error('Error saving transcriptions:', error);
             });
         }
 
-        function processWithLLM(transcriptionsData) {
+        function processWithLLM(transcriptionsData, table) {
             fetch('/process_with_llm', {
                 method: 'POST',
                 headers: {
@@ -374,10 +382,21 @@
             .then(response => response.json())
             .then(data => {
                 console.log('LLM response:', data);
+                updateTableWithAnalysis(data.llm_response, table);
             })
             .catch(error => {
                 console.error('Error processing with LLM:', error);
             });
+        }
+
+        function updateTableWithAnalysis(llm_response, table) {
+            for (let i = 0; i < Object.keys(llm_response).length; i++) {
+                const row = table.rows[i + 1]; // Skip header row
+                const analysisCell = row.cells[2]; // Third cell for analysis
+                const lamina = `Lámina ${i + 1}`;
+                const analysis = llm_response[lamina];
+                analysisCell.innerText = `Emoción: ${analysis.emotion}, Análisis: ${analysis.analysis}`;
+            }
         }
     </script>
 </head>

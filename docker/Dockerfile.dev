@@ -1,10 +1,46 @@
-FROM python:3.9-slim
+# Build stage for dependencies
+FROM python:3.8-slim-buster AS builder
 
 WORKDIR /app
 
-# Install system dependencies including Git
-RUN apt-get update && apt-get install -y \
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    cmake \
+    python3-dev \
+    portaudio19-dev \
+    python3-pyaudio \
+    libasound2-dev \
+    libportaudio2 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust with specific toolchain version
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain 1.68.0 \
+    && . $HOME/.cargo/env
+
+# Set environment variables
+ENV PATH="/root/.cargo/bin:${PATH}" \
+    CARGO_NET_GIT_FETCH_WITH_CLI=true \
+    PIP_DEFAULT_TIMEOUT=100 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1
+
+# Copy and install dependencies
+COPY requirements.txt . 
+RUN pip install --user --no-cache-dir --upgrade pip==23.1.2 setuptools wheel && \
+    pip install --user --no-cache-dir -r requirements.txt --timeout 1000
+
+# Pre-download the model
+RUN python -c "from transformers import pipeline; pipeline('text-classification', model='finiteautomata/beto-emotion-analysis', use_auth_token=False)"
+
+# Final stage
+FROM python:3.8-slim-buster
+
+WORKDIR /app
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-dev \
     libasound2-dev \
     portaudio19-dev \
@@ -15,39 +51,27 @@ RUN apt-get update && apt-get install -y \
     alsa-utils \
     sudo \
     ffmpeg \
-    git \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Miniconda
-RUN apt-get update && apt-get install -y wget && \
-    wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh && \
-    bash Miniconda3-latest-Linux-x86_64.sh -b -p /opt/conda && \
-    rm Miniconda3-latest-Linux-x86_64.sh && \
-    /opt/conda/bin/conda clean -afy
-ENV PATH=/opt/conda/bin:$PATH
+# Copy installed packages from builder
+COPY --from=builder /root/.local /root/.local
+ENV PATH=/root/.local/bin:$PATH
 
-# Install Python dependencies
-COPY requirements.txt .
-RUN pip install --upgrade pip setuptools
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Explicitly expose the port
-EXPOSE 5002
-
-# Remove the existing COPY commands for app and config
-# Since we'll use volumes instead
-RUN mkdir -p /app/static
-
-# Environment variables
-ENV PYTHONPATH=/app \
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
     FLASK_APP=app/__init__.py \
     FLASK_ENV=development \
-    PORT=5002
+    PORT=5002 \
+    TORCH_HOME="/app/.torch"
 
-# Update CMD to use the development server with debug mode
-CMD ["flask", "run", "--host=0.0.0.0", "--port=5002", "--debugger"]
+# Explicitly expose the port (this should be after the environment variables)
+EXPOSE 5002
 
-RUN pip show Flask
-RUN python --version
-
+# Setup application
 COPY . /app
+RUN mkdir -p /app/static
+
+# Update CMD to use flask run with explicit host binding
+CMD ["python", "-m", "flask", "run", "--host=0.0.0.0", "--port=5002"]

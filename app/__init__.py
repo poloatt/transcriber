@@ -17,7 +17,7 @@ transcriptions = []
 
 def create_app():
     app = Flask(__name__)
-    CORS(app)
+    CORS(app, resources={r"/*": {"origins": "*"}})  # Update CORS settings
     
     # Configure logging with correct path
     logging.basicConfig(
@@ -80,6 +80,47 @@ def create_app():
         if 'error' in llm_response:
             return jsonify({'status': 'error', 'message': 'Failed to process with LLM', 'error': llm_response['error']}), 500
 
-        return jsonify({'status': 'success', 'message': 'Transcriptions saved and processed successfully', 'llm_response': llm_response})
+        # Generar informe estructurado
+        report = generate_report(llm_response)
+
+        return jsonify({'status': 'success', 'message': 'Transcriptions saved and processed successfully', 'llm_response': llm_response, 'report': report})
+    
+    @app.route('/process_with_llm', methods=['POST'])
+    def process_with_llm_endpoint():
+        data = request.json
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+
+        # Enviar las transcripciones al LLM para procesamiento
+        llm_response = process_with_llm(data)
+        if 'error' in llm_response:
+            return jsonify({'status': 'error', 'message': 'Failed to process with LLM', 'error': llm_response['error']}), 500
+
+        return jsonify({'status': 'success', 'llm_response': llm_response})
     
     return app
+
+if __name__ == '__main__':
+    app = create_app()
+    app.run(host='0.0.0.0', port=5002, debug=True)
+
+def generate_report(llm_response):
+    # Custom logic to generate a structured report based on the LLM response
+    report = {
+        "summary": "Resumen de las respuestas por lámina",
+        "categories": [],
+        "key_indicators": []
+    }
+    
+    for lamina, analysis in llm_response.items():
+        report["categories"].append({
+            "lamina": lamina,
+            "emotion": analysis["emotion"],
+            "analysis": analysis["analysis"]
+        })
+        if analysis["analysis"] == "Positive":
+            report["key_indicators"].append(f"{lamina} tiene una respuesta dominante positiva.")
+        else:
+            report["key_indicators"].append(f"{lamina} tiene una respuesta dominante negativa.")
+    
+    return report

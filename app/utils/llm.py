@@ -1,48 +1,50 @@
-import requests
 import logging
+import warnings
+from transformers import pipeline
+
+# Silence the specific FutureWarning from huggingface_hub
+warnings.filterwarnings('ignore', category=FutureWarning, 
+                       message='`resume_download` is deprecated')
+
+# Initialize the Hugging Face pipeline for emotion analysis
+emotion_analysis_pipeline = pipeline("text-classification", 
+                                  model="finiteautomata/beto-emotion-analysis",
+                                  use_auth_token=False)
 
 def process_with_llm(data):
-    # URL del LLM (Hugging Face API endpoint)
-    llm_url = "https://api-inference.huggingface.co/models/gpt2"  # Example model
-
-    # Your Hugging Face API token
-    api_token = "your_huggingface_api_token"
-
-    # Asegúrate de que los datos sean un formato adecuado para el LLM
-    llm_data = {
-        "inputs": data  # Enviar la tabla de transcripciones
-    }
-
-    headers = {
-        "Authorization": f"Bearer {api_token}"
-    }
+    # Ensure that data is in the correct format (text for emotion analysis)
+    texts = [f"Lámina {i+1}: {response}" for i, response in enumerate(data.values())]
 
     try:
-        # Enviar los datos al LLM
-        response = requests.post(llm_url, headers=headers, json=llm_data)
-        response.raise_for_status()  # Raise an HTTPError for bad responses
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Error al procesar con LLM: {e}")
+        # Log the request data for debugging
+        logging.debug(f"Sending texts to LLM: {texts}")
+
+        # Use the pipeline to analyze the texts
+        llm_response = emotion_analysis_pipeline(texts)
+
+        # Log the response for debugging
+        logging.debug(f"LLM response: {llm_response}")
+    except Exception as e:
+        logging.error(f"Error processing with LLM: {e}")
         return {'error': str(e)}
 
-    llm_response = response.json()
-
-    # Custom logic for Rorschach analysis
+    # Custom logic for Rorschach analysis based on emotion analysis results
     analysis = perform_rorschach_analysis(llm_response)
     return analysis
+
 
 def perform_rorschach_analysis(llm_response):
     # Custom logic to analyze the LLM response for Rorschach analysis
     analysis = {}
-    for lamina, transcription in llm_response.items():
-        # Example logic: Count the number of positive and negative words
-        positive_words = ["happy", "joy", "love"]
-        negative_words = ["sad", "anger", "hate"]
-        positive_count = sum(word in transcription for word in positive_words)
-        negative_count = sum(word in transcription for word in negative_words)
+    
+    # Loop through the response to analyze each transcription
+    for i, result in enumerate(llm_response):
+        lamina = f"Lámina {i+1}"
+        # Example logic to check the emotion label (adjust to fit your model's output)
+        emotions = result.get("label", "")  # Replace with your model's actual label field
         analysis[lamina] = {
-            "positive_count": positive_count,
-            "negative_count": negative_count,
-            "analysis": "Positive" if positive_count > negative_count else "Negative"
+            "emotion": emotions,  # Store detected emotion for the transcription
+            "analysis": "Positive" if "joy" in emotions else "Negative"  # Example categorization
         }
+    
     return analysis
