@@ -1,15 +1,24 @@
 import logging
-import warnings
-from transformers import pipeline
+import sys
+import os
 
-# Silence the specific FutureWarning from huggingface_hub
-warnings.filterwarnings('ignore', category=FutureWarning, 
-                       message='`resume_download` is deprecated')
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
+logger.debug(f"Python path: {sys.path}")
+logger.debug(f"Current working directory: {os.getcwd()}")
+
+try:
+    from transformers import pipeline
+    logger.debug("Successfully imported transformers")
+except ImportError as e:
+    logger.error(f"Error importing transformers: {e}")
+    logger.error(f"Python executable: {sys.executable}")
+    logger.error(f"Python version: {sys.version}")
+    raise ImportError("Please ensure transformers is installed in your environment")
 
 # Initialize the Hugging Face pipeline for emotion analysis
-emotion_analysis_pipeline = pipeline("text-classification", 
-                                  model="finiteautomata/beto-emotion-analysis",
-                                  use_auth_token=False)
+emotion_analysis_pipeline = pipeline("text-classification", model="finiteautomata/beto-emotion-analysis")
 
 def process_with_llm(data):
     # Ensure that data is in the correct format (text for emotion analysis)
@@ -17,21 +26,20 @@ def process_with_llm(data):
 
     try:
         # Log the request data for debugging
-        logging.debug(f"Sending texts to LLM: {texts}")
+        logger.debug(f"Sending texts to LLM: {texts}")
 
         # Use the pipeline to analyze the texts
         llm_response = emotion_analysis_pipeline(texts)
 
         # Log the response for debugging
-        logging.debug(f"LLM response: {llm_response}")
+        logger.debug(f"LLM response: {llm_response}")
     except Exception as e:
-        logging.error(f"Error processing with LLM: {e}")
+        logger.error(f"Error processing with LLM: {e}")
         return {'error': str(e)}
 
     # Custom logic for Rorschach analysis based on emotion analysis results
     analysis = perform_rorschach_analysis(llm_response)
     return analysis
-
 
 def perform_rorschach_analysis(llm_response):
     # Custom logic to analyze the LLM response for Rorschach analysis

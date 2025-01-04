@@ -17,7 +17,7 @@ transcriptions = []
 
 def create_app():
     app = Flask(__name__)
-    CORS(app, resources={r"/*": {"origins": "*"}})  # Update CORS settings
+    CORS(app)
     
     # Configure logging with correct path
     logging.basicConfig(
@@ -99,10 +99,6 @@ def create_app():
         return jsonify({'status': 'success', 'llm_response': llm_response})
     
     return app
-
-if __name__ == '__main__':
-    app = create_app()
-    app.run(host='0.0.0.0', port=5002, debug=True)
 
 def generate_report(llm_response):
     # Custom logic to generate a structured report based on the LLM response

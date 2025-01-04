@@ -5,11 +5,13 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.dev
-    image: transcriber_asistant  # Specify the image name here
+    image: rorschachia
     ports:
-      - "5002:5002"
+      - "5002:5002"  # Make sure this mapping is correct
     volumes:
-      - ./app:/app/app:ro
+      - .:/app
+      - ~/.cache/torch:/root/.cache/torch
+      - ~/.cache/huggingface:/root/.cache/huggingface
       - ./config/${ENV:-dev}:/etc/transcriber/config:ro
       - ./config/${ENV:-dev}/pulse-client.conf:/etc/pulse/client.conf:ro
       - ./config/${ENV:-dev}/.asoundrc:/home/appuser/.asoundrc:ro
@@ -39,8 +41,3 @@ services:
       - SYS_NICE
       - SYS_RESOURCE
       - SYS_PTRACE
-    deploy:
-      resources:
-        limits:
-          memory: 10g
-          cpus: "1.0"
